@@ -1,12 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using MySql.Data.MySqlClient;
 using UnityEngine.UI;
 
 public class ControlButton : MonoBehaviour
 {
-    MySqlConnection mySqlConnection;
     public Text pauseContinue;
     public Text stopStart;
     public Text loadReset;
@@ -35,20 +33,11 @@ public class ControlButton : MonoBehaviour
         if (buttonInfo.text == "CONTROL")
         {
             manager.GetComponent<Control>().control = true;
-            // string q = string.Format("truncate table positions;");
-            // MySqlCommand c = new MySqlCommand(q, mySqlConnection);
-            // c.ExecuteNonQuery();
-            // c.Dispose();
-            // UpdateCommand();
-            // return;
         }
         if (buttonInfo.text == "SIMULATE")
         {
             manager.GetComponent<Control>().control = false;
-            // UpdateCommand();
-            // return;
         }
-        // *
         if (buttonInfo.text == "START")
         {
             manager.GetComponent<Control>().ResetToOrigin();
@@ -57,8 +46,6 @@ public class ControlButton : MonoBehaviour
         if (buttonInfo.text == "STOP")
         {
             manager.GetComponent<Control>().refresh = false;
-            // manager.GetComponent<Control>().BacktoOrigin();
-            // manager.GetComponent<Control>().ResetId();
         }
         if (buttonInfo.text == "CONTINUE")
         {
@@ -68,20 +55,10 @@ public class ControlButton : MonoBehaviour
         {
             manager.GetComponent<Control>().refresh = false;
         }
-        // *
-        // if (buttonInfo.text == "RESET")
-        // {
-        //     string reset = string.Format("truncate table positions;");
-        //     MySqlCommand resetCmd = new MySqlCommand(reset, mySqlConnection);
-        //     resetCmd.ExecuteNonQuery();
-        //     resetCmd.Dispose();
-        //     manager.GetComponent<Control>().ResetId();
-        // }
-        string query = string.Format("insert into commands (command) values ('{0}');", buttonInfo.text);
-        Debug.Log(query);
-        MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-        cmd.ExecuteNonQuery();
-        cmd.Dispose();
+        // string query = string.Format("insert into commands (command) values ('{0}');", buttonInfo.text);
+        // MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
+        // cmd.ExecuteNonQuery();
+        // cmd.Dispose();
         UpdateCommand();
     }
 
@@ -122,7 +99,7 @@ public class ControlButton : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        mySqlConnection = ConnectionMySQL.mySqlConnection;
+        // mySqlConnection = ConnectionMySQL.mySqlConnection;
         manager = GameObject.Find("Manager");
     }
 

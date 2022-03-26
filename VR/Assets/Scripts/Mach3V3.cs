@@ -1,15 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using MySql.Data.MySqlClient;
 using System.IO;
 using UnityEngine.UI;
-using System.Net.Sockets;
 using System;
+using LitJson;
 
 public class Mach3V3 : MonoBehaviour
 {
-    MySqlConnection mySqlConnection;
     string commandPath;
     string outputPath;
     StreamReader sr;
@@ -24,10 +22,10 @@ public class Mach3V3 : MonoBehaviour
     float delay = 0.1f;
     string commandStr;
     int commandId;
-    bool idLock;
+    Client mach;
+    StreamWriter commandWriter;
     TcpClient commandSocket;
     NetworkStream commandStream;
-    StreamWriter commandWriter;
     string host = "localhost";
     Int32 port = 8080;
     internal Boolean socketReady = false;
@@ -75,11 +73,15 @@ public class Mach3V3 : MonoBehaviour
             {
                 Debug.Log(parameters);
                 string[] xyzv = parameters.Split(' ');
-                string query = string.Format("insert into positions (x,y,z,vx,vy,vz) values ({0},{1},{2},{3},{4},{5});", xyzv[0], xyzv[1], xyzv[2], xyzv[3], xyzv[4], xyzv[5]);
-                Debug.Log(query);
-                MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-                cmd.ExecuteNonQuery();
-                cmd.Dispose();
+                JsonData data = new JsonData();
+                data["x"] = xyzv[0];
+                data["y"] = xyzv[1];
+                data["z"] = xyzv[2];
+                data["vx"] = xyzv[3];
+                data["vy"] = xyzv[4];
+                data["vz"] = xyzv[5];
+                data["sender"] = "Mach3";
+                mach.SendMessage(data);
             }
             sr.Close();
             sr.Dispose();
@@ -106,46 +108,34 @@ public class Mach3V3 : MonoBehaviour
 
     public void ReceiveCommands()
     {
-        idLock = true;
-        string query = string.Format("select command from commands where id={0}", commandId);
-        MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-        MySqlDataReader rdr = cmd.ExecuteReader();
-        if (rdr.Read())
-        {
-            commandId += 1;
-            commandStr = rdr.GetString("command");
-            Debug.Log(commandStr);
-            switch (commandStr)
-            {
-                case "STOP":
-                    StopProcess();
-                    SendCommand(commands[2]);
-                    break;
-                case "START":
-                    SendCommand(commands[1]);
-                    commandProcess = StartCoroutine(Process());
-                    break;
-                case "PAUSE":
-                    SendCommand(commands[3]);
-                    break;
-                case "CONTINUE":
-                    SendCommand(commands[4]);
-                    break;
-                // case "LOAD":
-                //     System.IO.File.WriteAllText(Path.Combine(commandPath, commands[0]), null);
-                //     break;
-                default:
-                    break;
-            }
+        if(mach.command.Count() == 0){
+            return;
         }
-        rdr.Close();
-        rdr.Dispose();
-        cmd.Dispose();
-        idLock = false;
+        JsonData data = mach.command.Dequeue();
+        commandStr = data["command"];
+        switch(commandStr){
+            case "STOP":
+                StopProcess();
+                SendCommand(commands[2]);
+                break;
+            case "START":
+                SendCommand(commands[1]);
+                commandProcess = StartCoroutine(Process());
+                break;
+            case "PAUSE":
+                SendCommand(commands[3]);
+                break;
+            case "CONTINUE":
+                SendCommand(commands[4]);
+                break;
+            default:
+                break;
+        }
     }
 
     void SendCommand(string command)
     {
+
         if (socketReady == false)
         {
             return;
@@ -157,9 +147,10 @@ public class Mach3V3 : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        mySqlConnection = ConnectionMySQL.mySqlConnection;
         try
         {
+            mach = new Client();
+            mach.StartThread();
             commandSocket = new TcpClient(host, port);
             commandStream = commandSocket.GetStream();
             commandWriter = new StreamWriter(commandStream);
@@ -169,17 +160,13 @@ public class Mach3V3 : MonoBehaviour
         {
             Debug.Log("Socket error: " + e);
         }
-        commandId = 1;
-        idLock = false;
+        // commandId = 1;
+        // idLock = false;
     }
 
     // Update is called once per frame
     void Update()
     {
-        indicator.GetComponent<Image>().color = colors[mySqlConnection.State.ToString() == "Open" ? 1 : 0];
-        if (idLock == false)
-        {
-            ReceiveCommands();
-        }
+        ReceiveCommands();
     }
 }

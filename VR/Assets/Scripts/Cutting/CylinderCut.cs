@@ -19,13 +19,7 @@ public class CylinderCut : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // float MoveH = Input.GetAxis("Horizontal");
-        // float MoveV = Input.GetAxis("Vertical");
-        // float MoveZ = Input.GetAxis("Mouse ScrollWheel") * 3.0f;
-        // transform.Translate(new Vector3(MoveH, MoveZ, MoveV) * Time.deltaTime * moveSpeed);
-
         EventBus.Publish<HeightEvent>(new HeightEvent(gameObject.transform.position.y - height));
-
     }
 }
 

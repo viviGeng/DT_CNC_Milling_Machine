@@ -65,7 +65,7 @@ public class View : MonoBehaviour
             transform.rotation = storeRotation;
             transform.position = storeRotation * new Vector3(0.0f, 0.0f, -Distance) + viewTargetPosition; ;
         }
-        else if (Input.GetAxis("Mouse ScrollWheel") != 0 && (manager.GetComponent<Control>().control == false || Input.GetKey(KeyCode.Z)))
+        else if (Input.GetAxis("Mouse ScrollWheel") != 0 &&  Input.GetKey(KeyCode.Z))
         {
             if (Distance >= zoomMin && Distance <= zoomMax)
             {

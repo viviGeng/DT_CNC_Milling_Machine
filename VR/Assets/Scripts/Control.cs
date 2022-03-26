@@ -1,13 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using MySql.Data.MySqlClient;
 using UnityEngine.UI;
+using LitJson;
 
 public class Control : MonoBehaviour
 {
-    MySqlConnection mySqlConnection;
-    int id;
+    Client control;
     float x;
     float y;
     float z;
@@ -15,7 +14,7 @@ public class Control : MonoBehaviour
     float speedY;
     float speedZ;
     bool mLock;
-    bool idLock;
+    bool rLock;
     public GameObject xFrame;
     public GameObject yFrame;
     public GameObject zFrame;
@@ -25,29 +24,19 @@ public class Control : MonoBehaviour
 
     public void Move()
     {
-        idLock = true;
-        // id += 1;
-        string query = string.Format("select * from positions where id={0}", id);
-        MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-        MySqlDataReader rdr = cmd.ExecuteReader();
-        if (rdr.Read())
-        {
-            id += 1;
-            x = rdr.GetFloat("x");
-            y = rdr.GetFloat("y");
-            z = rdr.GetFloat("z");
-            speedX = rdr.GetFloat("vx");
-            speedY = rdr.GetFloat("vy");
-            speedZ = rdr.GetFloat("vz");
-            StartCoroutine(MoveXYZ());
+        if(control.command.Count() == 0){
+            rLock = false;
+            return;
         }
-        else
-        {
-            idLock = false;
-        }
-        rdr.Close();
-        rdr.Dispose();
-        cmd.Dispose();
+        rLock = true;
+        JsonData data = control.command.Dequeue();
+        x = data["x"];
+        y = data["y"];
+        z = data["z"];
+        speedX = data["vx"];
+        speedY = data["vy"];
+        speedZ = data["vz"];
+        StartCoroutine(MoveXYZ());
     }
 
     IEnumerator MoveXYZ()
@@ -90,20 +79,18 @@ public class Control : MonoBehaviour
         zFrame.transform.Translate(moveY, 3 * moveZ, -moveX);
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            string query = string.Format("insert into feedback (x,y,z) values ({0},{1},{2});", -zFrame.transform.position.z, -zFrame.transform.position.x, -zFrame.transform.position.y);
-            MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-            cmd.ExecuteNonQuery();
-            cmd.Dispose();
+            JsonData data = new JsonData();
+            data["x"] = -zFrame.transform.position.z;
+            data["y"] = -zFrame.transform.position.x;
+            data["z"] = -zFrame.transform.position.y;
+            data["sender"] = "VR";
+            control.SendMessage(data);
         }
     }
 
     public void ResetToOrigin()
     {
-        string resetPositions = string.Format("truncate table positions;");
-        MySqlCommand resetPositionsCmd = new MySqlCommand(resetPositions, mySqlConnection); ;
-        resetPositionsCmd.ExecuteNonQuery();
-        resetPositionsCmd.Dispose();
-        id = 1;
+        control.command.Clear();
         xFrame.transform.position = Vector3.zero;
         yFrame.transform.position = Vector3.zero;
         zFrame.transform.position = Vector3.zero;
@@ -112,8 +99,8 @@ public class Control : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        mySqlConnection = ConnectionMySQL.mySqlConnection;
-        id = 1;
+        control = new Client();
+        control.StartThread();
         x = 0.0f;
         y = 0.0f;
         z = 0.0f;
@@ -121,7 +108,7 @@ public class Control : MonoBehaviour
         speedY = 0.0f;
         speedZ = 0.0f;
         mLock = false;
-        idLock = false;
+        rLock = false;
         control = false;
         refresh = false;
     }
@@ -134,7 +121,7 @@ public class Control : MonoBehaviour
         {
             RemoteControl();
         }
-        if (control == false && idLock == false && refresh == true)
+        if (control == false && moveLock == false && refresh == true)
         {
             Move();
         }
