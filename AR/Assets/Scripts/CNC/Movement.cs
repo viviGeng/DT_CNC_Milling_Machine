@@ -1,40 +1,31 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using MySql.Data.MySqlClient;
+using LitJson;
 
 public class Movement : MonoBehaviour
 {
-    MySqlConnection mySqlConnection;
+    Client cnc;
     int id;
     float x;
     float y;
     float z;
-    bool idLock;
+    bool rLock;
     public GameObject drill;
     Vector3 initial;
 
     public void ReceiveCoord()
     {
-        idLock = true;
-        string query = string.Format("select x,y,z from positions where id={0}", id);
-        MySqlCommand cmd = new MySqlCommand(query, mySqlConnection);
-        MySqlDataReader rdr = cmd.ExecuteReader();
-        if (rdr.Read())
-        {
-            id += 1;
-            x = rdr.GetFloat("x");
-            y = rdr.GetFloat("y");
-            z = rdr.GetFloat("z");
-            StartCoroutine(Move());
+        if(cnc.command.Count() == 0){
+            rLock = false;
+            return;
         }
-        else
-        {
-            idLock = false;
-        }
-        rdr.Close();
-        rdr.Dispose();
-        cmd.Dispose();
+        rLock = true;
+        JsonData data = cnc.command.Dequeue();
+        x = data["x"];
+        y = data["y"];
+        z = data["z"];
+        StartCoroutine(Move());
     }
 
     IEnumerator Move()
@@ -49,14 +40,14 @@ public class Movement : MonoBehaviour
             yield return null;
         }
         drill.transform.localPosition = end;
-        idLock = false;
+        rLock = false;
     }
 
     // Start is called before the first frame update
     void Start()
     {
-        mySqlConnection = Connection.mySqlConnection;
-        id = 1;
+        cnc = new Client();
+        cnc.StartThread();
         x = 0.0f;
         y = 0.0f;
         z = 0.0f;
@@ -66,8 +57,7 @@ public class Movement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // Debug.Log(drill.transform.localPosition);
-        if (idLock == false)
+        if (rLock == false)
         {
             ReceiveCoord();
         }
