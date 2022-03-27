@@ -9,16 +9,17 @@ using LitJson;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
+using System.Timers.Time;
 
 public class ServerDemo
 {
     Socket socket;
-    //private List<Socket> client;
+    System.Timers.Timer timer;
     private ConcurrentDictionary<string,Socket> ClientConnected;
-    private bool StartCommunication = false;
+    private ConcurrentDictionary<string,int> HeartBeat;
+    private ConcurrentDictionary<string,string[]> transferInfo;
     private string ip;
     private int port;
-    private int maxBuffer = 1024;
     //private byte[] buffer;
     private byte[] buffer = new byte[1024];
     private FileStream fs= new FileStream("/home/grx/Serverc/Serverc/Server/data.txt",FileMode.Open,FileAccess.Write);
@@ -48,6 +49,26 @@ public class ServerDemo
             Console.WriteLine("New Serve: is opened successfully!");
             Console.WriteLine("Listen to the connection!");
             ClientConnected = new ConcurrentDictionary<string,Socket>();
+            HeartBeat = new ConcurrentDictionary<string,int>();
+            transferInfo = new ConcurrentDictionary<string,string[]>();
+            string[] tmp = new string[]{"VR","AR"};
+            transferInfo.Add("Mach3",tmp);
+            string[] tmp = new string[]{"Mach3"};
+            transferInfo.Add("VR",tmp);
+            timer = new System.Timers.Timer();
+            timer.Interval = 2000;
+            timer.Elapsed += delegate{
+                foreach (KeyValuePair<string, int> kvp in HeartBeat){
+                    if(kvp.Value > 3){
+                        HeartBeat.Remove(kvp.Key);
+                        ClientConnected.Remove(kvp.Key);
+                    }
+                    else{
+                        kvp.Value = kvp.Value + 1;
+                    }
+                }
+            };
+            timer.Start();
             socket.BeginAccept(new AsyncCallback(AcceptCallback),socket);
         }
         catch (Exception e)
@@ -66,7 +87,6 @@ public class ServerDemo
     }
     public void Receive(Socket c)
     {
-        //byte[] buffer = new byte[maxBuffer];
         try
         {
             c.BeginReceive(buffer, 0, 1024, 0, new AsyncCallback(BegRece), c);
@@ -77,15 +97,15 @@ public class ServerDemo
         }
     }
 
-    private void BegRece(IAsyncResult ar)
+    private async void BegRece(IAsyncResult ar)
     {
-	if(ar == null)
-	{
-		Console.WriteLine("Null!!!!!");
-	}
+	    if(ar == null)
+	    {
+		    Console.WriteLine("Receive Null");
+	    }
         Socket so = (Socket)ar.AsyncState;
         Console.WriteLine("Receive info from client");
-	int length = so.EndReceive(ar);
+	    int length = so.EndReceive(ar);
         Console.WriteLine("Info Length: "+length.ToString());
 
         try
@@ -96,7 +116,7 @@ public class ServerDemo
             {
                 int jdLength = BitConverter.ToInt32(buffer, usd);
                 Console.WriteLine("jdLength is "+ jdLength.ToString());
-		if(jdLength > length)
+		        if(jdLength > length)
                 {
                     break;
                 }
@@ -107,6 +127,34 @@ public class ServerDemo
                     JsonData jd = JsonMapper.ToObject<JsonData>(content);
                     string sender = (string) jd["sender"];
                     string note = (string) jd["note"];                
+                    switch (note)
+                    {
+                        case "connect":
+                            try{
+                                ClientConnected.TryAdd(sender,so);
+                                HeartBeat.TryAdd(sender,0);
+                            }
+                            catch(Exception e)
+                            {
+                                Console.WriteLine("Error is : "+e);
+                            }
+                        case "heartbeat":
+                            HeartBeat[sender] = 0;
+                        case "transmit":
+                        	byte[] jsByte = Encoding.UTF8.GetBytes(jd.ToJson());
+			                int head = jsByte.Length;
+			                byte[] ss = BitConverter.GetBytes(head);
+			                byte[] s1 = new byte[ss.Length+jsByte.Length];
+			                Buffer.BlockCopy(ss,0,s1,0,4);
+			                Buffer.BlockCopy(jsByte,0,s1,4,jsByte.Length);
+			                fs.Write(s1,0,s1.Length);
+                            for(int i = 0 ; i < transferInfo["sender"].size() ; i++){
+                                string terminal = transferInfo["sender"][i];
+                                if(ClientConnected.ContainsKey(terminal)){
+                                    ClientConnected[terminal].Send(s1);
+                                }
+                            }
+                    }
                     if (!ClientConnected.ContainsKey(sender))
                     {
                         Console.WriteLine(sender+ " send test message and connected.");
@@ -127,22 +175,7 @@ public class ServerDemo
                             }
                         }
                     }   
-		        int k =0;
-		        foreach (KeyValuePair<string, Socket> kvp in ClientConnected)
-                        {
-			    k = k+1;
-                            Console.WriteLine("Key = {0}", kvp.Key);
-                        }
-		        Console.WriteLine("Dictionary Length: "+ k);	
-			byte[] jsByte = Encoding.UTF8.GetBytes(jd.ToJson());
-			int head = jsByte.Length;
-			byte[] ss = BitConverter.GetBytes(head);
-			byte[] s1 = new byte[ss.Length+jsByte.Length];
-			Buffer.BlockCopy(ss,0,s1,0,4);
-			Buffer.BlockCopy(jsByte,0,s1,4,jsByte.Length);
-			fs.Write(s1,0,s1.Length);
-            ClientConnected[sender].Send(s1);
-		}	
+		        }	
                 usd += jdLength;
                 if (usd == length)
                 {
@@ -158,6 +191,6 @@ public class ServerDemo
         {
             Console.WriteLine("Error!!! "+ e.ToString());
         }
-	so.BeginReceive(buffer, 0, 1024, 0, new AsyncCallback(BegRece), so);	
+	    so.BeginReceive(buffer, 0, 1024, 0, new AsyncCallback(BegRece), so);	
     }
 }

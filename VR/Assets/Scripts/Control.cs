@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Timers.Time;
 using UnityEngine;
 using UnityEngine.UI;
 using LitJson;
@@ -7,6 +8,7 @@ using LitJson;
 public class Control : MonoBehaviour
 {
     Client control;
+    System.Timers.Timer timer;
     float x;
     float y;
     float z;
@@ -84,6 +86,7 @@ public class Control : MonoBehaviour
             data["y"] = -zFrame.transform.position.x;
             data["z"] = -zFrame.transform.position.y;
             data["sender"] = "VR";
+            data["note"] = "transmit";
             control.SendMessage(data);
         }
     }
@@ -111,6 +114,19 @@ public class Control : MonoBehaviour
         rLock = false;
         control = false;
         refresh = false;
+        JsonData data = new JsonData();
+        data["sender"] = "VR";
+        data["note"] = "connect";
+        control.SendMessage(data);
+        timer = new System.Timers.Timer();
+        timer.Interval = 500;
+        timer.Elapsed += delegate{
+            JsonData data = new JsonData();
+            data["sender"] = "VR";
+            data["note"] = "heartbeat";
+            control.SendMessage(data);
+        };
+        timer.Start();
     }
 
     // Update is called once per frame

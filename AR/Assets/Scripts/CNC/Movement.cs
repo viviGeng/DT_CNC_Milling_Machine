@@ -1,12 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Timers.Time;
 using UnityEngine;
 using LitJson;
 
 public class Movement : MonoBehaviour
 {
     Client cnc;
-    int id;
+    System.Timers.Timer timer;
     float x;
     float y;
     float z;
@@ -48,10 +49,23 @@ public class Movement : MonoBehaviour
     {
         cnc = new Client();
         cnc.StartThread();
+        JsonData data = new JsonData();
+        data["sender"] = "AR";
+        data["note"] = "connect";
+        cnc.SendMessage(data);
         x = 0.0f;
         y = 0.0f;
         z = 0.0f;
         initial = drill.transform.localPosition;
+        timer = new System.Timers.Timer();
+        timer.Interval = 500;
+        timer.Elapsed += delegate{
+            JsonData data = new JsonData();
+            data["sender"] = "AR";
+            data["note"] = "heartbeat";
+            cnc.SendMessage(data);
+        };
+        timer.Start();
     }
 
     // Update is called once per frame

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Timers.Time;
 using UnityEngine;
 using System.IO;
 using UnityEngine.UI;
@@ -23,6 +24,7 @@ public class Mach3V3 : MonoBehaviour
     string commandStr;
     int commandId;
     Client mach;
+    System.Timers.Timer timer;
     StreamWriter commandWriter;
     TcpClient commandSocket;
     NetworkStream commandStream;
@@ -81,6 +83,7 @@ public class Mach3V3 : MonoBehaviour
                 data["vy"] = xyzv[4];
                 data["vz"] = xyzv[5];
                 data["sender"] = "Mach3";
+                data["note"] = "transmit";
                 mach.SendMessage(data);
             }
             sr.Close();
@@ -155,6 +158,19 @@ public class Mach3V3 : MonoBehaviour
             commandStream = commandSocket.GetStream();
             commandWriter = new StreamWriter(commandStream);
             socketReady = true;
+            JsonData data = new JsonData();
+            data["sender"] = "Mach3";
+            data["note"] = "connect";
+            mach.SendMessage(data);
+            timer = new System.Timers.Timer();
+            timer.Interval = 500;
+            timer.Elapsed += delegate{
+                JsonData data = new JsonData();
+                data["sender"] = "Mach3";
+                data["note"] = "heartbeat";
+                mach.SendMessage(data);
+            };
+            timer.Start();
         }
         catch (Exception e)
         {
